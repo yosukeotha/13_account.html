@@ -160,7 +160,7 @@ const txHttp  = new nem.TransactionHttp(NODE);
 const wsEndpoint = NODE.replace('https', 'wss');
 const listener = new nem.Listener(wsEndpoint, WebSocket);
 listener.open().then(() => {
-	setInterval(function(){listener.newBlock()}, 30000);
+	setInterval(function(){listener.newBlock()}, 300000);
 });
 
 var isMovieScanning = false;
