@@ -35,6 +35,19 @@
 		</ul>
 
 		<div class="tab-content">
+
+			<!-- 口座 -->
+			<div id="tab_contact" class="tab-pane active">
+				<div class="card" style="width: 18rem;">
+					<img class="card-img-top" id="contact" alt="カードの画像">
+					<div class="card-body">
+						<h5 class="card-title">口座ID</h5>
+						<p class="card-text" id="text_contact"></p>
+						<a id="download_contact" href="javascript:void(0);" download="contact_qr.png" class="btn btn-primary">ダウンロード</a>
+					</div>
+				</div>
+			</div>
+
 			<!-- 自署 -->
 			<div id="tab_selfsign" class="tab-pane">
 
@@ -51,32 +64,24 @@
 				<div id="confirmed_selfsign"><ul></ul></div>
 			</div>
 
-			<!-- 口座 -->
-			<div id="tab_contact" class="tab-pane active">
-				<div class="card" style="width: 18rem;">
-					<img class="card-img-top" id="contact" alt="カードの画像">
-					<div class="card-body">
-						<h5 class="card-title">口座ID</h5>
-						<p class="card-text" id="text_contact"></p>
-						<a id="download_contact" href="javascript:void(0);" download="contact_qr.png" class="btn btn-primary">ダウンロード</a>
-					</div>
-				</div>
-			</div>
-
 			<!-- 承認 -->
 			<div id="tab_confirm" class="tab-pane">
 
-				<div><b>申請者口座ID:</b> <span id="outputData_confirm" class="text-break"></span></div>
+				<div><b>申請者情報:</b> <span id="outputData_confirm" class="text-break"></span></div>
 
-				<label>承認テキスト:</label>
-				<input type="text" id="text_confirm" class="form-control">
-				<div class="input-group">
-					<label class="input-group-btn">
-						<span class="btn btn-primary">
-							申請書ファイルの指紋挿入<input id="file_confirm" type="file" style="display:none">
-						</span>
-					</label>
+				<div class="collapse" id="div_text_confirm">
+
+					<label><b>承認テキスト:</b></label>
+					<input type="text" id="text_confirm" class="form-control">
+					<div class="input-group">
+						<label class="input-group-btn">
+							<span class="btn btn-primary">
+								申請書ファイルの指紋挿入<input id="file_confirm" type="file" style="display:none">
+							</span>
+						</label>
+					</div>
 				</div>
+
 				<div><button type="button" id="button_confirm" class="btn btn-primary">押印</button></div>
 				<div id="confirmed_confirm"><ul></ul></div>
 			</div>
@@ -94,7 +99,6 @@
 	</div><!-- div3 -->
 </div>
 
-
 <!-- モーダルの設定 -->
 <div class="modal fade" id="modal-qrscan" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
 	<div class="modal-dialog" role="document">
@@ -110,12 +114,12 @@
 				<div class="input-group">
 					<label class="input-group-btn">
 						<span class="btn btn-primary">
-							画像でスキャン<input id="image_" type="file" style="display:none">
+							画像でスキャン<input id="image" type="file" style="display:none">
 						</span>
 					</label>
 				</div>
-				<canvas id="canvas_" hidden></canvas>
-				<div hidden><span id="outputData_" class="text-break"></span></div>
+				<canvas id="canvas" hidden></canvas>
+				<div id="outputData" class="text-break"></div>
 			</div>
 			<div class="modal-footer">
 				<button type="button" class="btn btn-default" data-dismiss="modal">キャンセル</button>
@@ -183,7 +187,7 @@ listener.open().then(() => {
 
 //グローバル変数
 var alicePublicAccount;
-var exportJSON;
+var aliceJSON;
 var canvasElement;
 var canvas;
 var outputData;
@@ -191,8 +195,6 @@ var currentTab;
 
 var isMovieScanning = false;
 var video = document.createElement("video");
-
-
 
 function drawLine(begin, end, color) {
 	canvas.beginPath();
@@ -207,7 +209,7 @@ function tick() {
 	if(!isMovieScanning){return;}
 
 	if (video.readyState === video.HAVE_ENOUGH_DATA) {
-		canvasElement.hidden   = false;
+		canvasElement.hidden = false;
 		canvasElement.width  = 450;
 		canvasElement.height = 450 * video.videoHeight / video.videoWidth;
 
@@ -224,7 +226,7 @@ function getCodeInfo(src){
 
 	if (code) {
 		isMovieScanning = false;
-		outputData.parentElement.hidden = false;
+//		outputData.parentElement.hidden = false;
 
 		drawLine(code.location.topLeftCorner		, code.location.topRightCorner		,"#FF3B58");
 		drawLine(code.location.topRightCorner		, code.location.bottomRightCorner	,"#FF3B58");
@@ -234,7 +236,7 @@ function getCodeInfo(src){
 		resultQR(code.data);
 
 	} else {
-		outputData.parentElement.hidden = true;
+//		outputData.parentElement.hidden = true;
 	}
 }
 
@@ -243,9 +245,9 @@ function startVideo(divId){
 	currentTab = "tab_" + divId;
 	isMovieScanning = true;
 
-	canvasElement = document.getElementById("canvas_");
+	canvasElement = document.getElementById("canvas");
 	canvas		  = canvasElement.getContext("2d");
-	outputData	  = document.getElementById("outputData_");
+	outputData	  = document.getElementById("outputData");
 
 	navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(function(stream) {
 		video.srcObject = stream;
@@ -295,22 +297,22 @@ function showAccountQR(x){
 }
 
 //押印
-function signByHanco(confirmedAddress,divId){
+function signByHanco(confirmedAddress,divId,message){
 
 	const tx = nem.TransferTransaction.create(
 		nem.Deadline.create(),
 		confirmedAddress,[],
-		nem.PlainMessage.create($("#text_" + divId).val()),
+		nem.PlainMessage.create(message),
 		nem.NetworkType.TEST_NET,
 		nem.UInt64.fromUint(100000)
 	);
 
 	// 入力ダイアログを表示 ＋ 入力内容を user に代入
 	const pass = window.prompt("パスフレーズを入力してください", "");
-	const importAccount = qr.AccountQR.fromJSON(exportJSON,pass);
+	const aliceQR = qr.AccountQR.fromJSON(aliceJSON,pass);
 	delete pass;
-	const signedTx = importAccount.account.sign(tx,GENERATION_HASH);
-	delete importAccount;
+	const signedTx = aliceQR.account.sign(tx,GENERATION_HASH);
+	delete aliceQR;
 	const txHttp = new nem.TransactionHttp(NODE);
 	txHttp.announce(signedTx)
 	.subscribe(_ => {
@@ -360,7 +362,7 @@ function scanFileImage(){
 
 	stopVideo();
 
-	const fileList = document.getElementById("image_").files;
+	const fileList = document.getElementById("image").files;
 	const reader = new FileReader();
 	const file = fileList[0];
 	if (file.type == 'image/jpeg' || file.type == 'image/png'){
@@ -405,14 +407,38 @@ $(".nav-item a").click( function(e){
 	}
 });
 
+//QRコードスキャン完了時
+function resultQR(data){
+
+	if(currentTab == "tab_confirm"){ //承認
+
+		outputData.innerText = data;
+
+	}else if(currentTab == "tab_verify"){ //検証
+
+		outputData.innerText = JSON.parse(data).data.hash;
+
+	}else if(currentTab == "tab_"){ //復元
+
+		outputData.innerText = data;
+	}
+}
+
 //モーダルウィンドウOKクリック時
 $("#modal_ok").click(function(){
 
-	if(currentTab == "tab_confirm"){
+	if(currentTab == "tab_confirm"){ //承認
 
 		$('#outputData_confirm').text(outputData.innerText);
+		const jsonData = JSON.parse(outputData.innerText).data;
+		if(jsonData.name == 'xemhanco.tx.1'){
 
-	}else if(currentTab == "tab_verify"){
+			$('#div_text_confirm').modal('hide');
+		}else{
+			$('#div_text_confirm').modal('show');
+		}
+
+	}else if(currentTab == "tab_verify"){ //検証
 
 		$('#outputData_verify').text(outputData.innerText);
 		txHttp.getTransaction(outputData.innerText)
@@ -431,16 +457,16 @@ $("#modal_ok").click(function(){
 			});
 		});
 
-	}else if(currentTab == "tab_"){
+	}else if(currentTab == "tab_"){ //復元
 
-		const importAccount = qr.AccountQR.fromJSON(outputData.innerText,$("#pass").val());
-		alicePublicAccount = importAccount.account.publicAccount;
-		importAccount.toBase64()
+		const aliceQR = qr.AccountQR.fromJSON(outputData.innerText,$("#pass").val());
+		alicePublicAccount = aliceQR.account.publicAccount;
+		aliceQR.toBase64()
 		.subscribe(x =>{
 			showAccountQR(x);
 		});
-		exportJSON = importAccount.toJSON();
-		delete importAccount;
+		aliceJSON = aliceQR.toJSON();
+		delete aliceQR;
 
 		accountHttp.getAccountInfo(alicePublicAccount.address)
 		.pipe(
@@ -457,39 +483,22 @@ $("#modal_ok").click(function(){
 	}
 });
 
-//QRコードスキャン完了時
-function resultQR(data){
-
-	if(currentTab == "tab_confirm"){
-
-		outputData.innerText = JSON.parse(data).data.publicKey;
-
-	}else if(currentTab == "tab_verify"){
-
-		outputData.innerText = JSON.parse(data).data.hash;
-
-	}else if(currentTab == "tab_"){
-
-		outputData.innerText = data;
-	}
-}
-
 //■■■VIEW■■■
 
 $("#create").click(function(){
 
 	const alice = nem.Account.generateNewAccount(nem.NetworkType.TEST_NET);
 	alicePublicAccount = alice.publicAccount;
-	const importAccount = new qr.AccountQR(alice,$("#pass").val(),nem.NetworkType.TEST_NET);
+	const aliceQR = new qr.AccountQR(alice,$("#pass").val(),nem.NetworkType.TEST_NET);
 
-	importAccount.toBase64()
+	aliceQR.toBase64()
 	.subscribe(x =>{
 		showAccountQR(x);
 	});
 
-	exportJSON = importAccount.toJSON();
+	aliceJSON = aliceQR.toJSON();
 	delete alice;
-	delete importAccount;
+	delete aliceQR;
 	//showAccountQR();
 });
 
@@ -505,12 +514,12 @@ $('#modal-qrscan').on('hide.bs.modal', function (e) {
 
 	stopVideo();
 	canvas.clearRect(0, 0, canvasElement.width, canvasElement.height);
-	$('#image_').val("");
+	$('#image').val("");
 	outputData.innerText = "";
 })
 
 
-$('#image_'       ).change(function(e) {scanFileImage();});
+$('#image'       ).change(function(e) {scanFileImage();});
 $('#file_selfsign').change(function(e) {setFileHash('selfsign')});
 $('#file_confirm' ).change(function(e) {setFileHash('confirm')});
 
@@ -521,13 +530,34 @@ $('#download_contact').click(function(e){
 });
 
 //自署：押印
-$('#button_selfsign').click(function(e) {signByHanco(alicePublicAccount.address,"selfsign")});
+$('#button_selfsign').click(function(e) {
+	signByHanco(
+		alicePublicAccount.address,
+		"selfsign",
+		$("#text_selfsign").val()
+	)
+});
 
 //承認：押印
 $('#button_confirm').click(function(e) {
 
-	const confirmedAccount = nem.PublicAccount.createFromPublicKey($('#outputData_confirm').text(),nem.NetworkType.TEST_NET);
-	signByHanco(confirmedAccount.address,"confirm")
+	const jsonData = JSON.parse($('#outputData_confirm').text()).data;
+	if(jsonData.name == 'xemhanco.contact.1'){
+
+		const confirmedAccount = nem.PublicAccount.createFromPublicKey(jsonData.publicKey,nem.NetworkType.TEST_NET);
+		signByHanco(confirmedAccount.address,"confirm",$("#text_confirm").val())
+
+	}else if(jsonData.name == 'xemhanco.tx.1'){
+
+		txHttp.getTransaction(jsonData.hash)
+		.subscribe(x=>{
+
+			signByHanco(x.signer.address,"confirm",jsonData.hash)
+		});
+
+	}else{
+		alert("承認できないデータです")
+	}
 });
 
 $("#faucet").click(function(){
