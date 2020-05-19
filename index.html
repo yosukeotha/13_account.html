@@ -1,3 +1,22 @@
+Skip to content
+Search or jump to…
+
+Pull requests
+Issues
+Marketplace
+Explore
+ 
+@yosukeotha 
+Learn Git and GitHub without any code!
+Using the Hello World guide, you’ll start a branch, write comments, and open a pull request.
+
+
+Code Issues 0 Pull requests 0 Projects 0 Actions Wiki Security 0 Pulse Community
+xemhanco/20_expired.html
+@xembook xembook update
+4d01ffc 21 hours ago
+752 lines (643 sloc)  24.6 KB
+  
 <!doctype html>
 <html lang="ja">
 <head>
@@ -29,9 +48,9 @@
 		<hr>
 		<ul class="nav nav-tabs">
 			<li class="nav-item"><a href="#tab_contact"  data-toggle="tab" class="nav-link active">口座</a></li>
-			<li class="nav-item"><a href="#tab_selfsign" data-toggle="tab" class="nav-link"       >自署</a></li>
-			<li class="nav-item"><a href="#tab_confirm"  data-toggle="tab" class="nav-link"       >承認</a></li>
-			<li class="nav-item"><a href="#tab_verify"   data-toggle="tab" class="nav-link"       >検証</a></li>
+			<li class="nav-item"><a href="#tab_selfsign" data-toggle="tab" class="nav-link" 	  >自署</a></li>
+			<li class="nav-item"><a href="#tab_confirm"  data-toggle="tab" class="nav-link" 	  >承認</a></li>
+			<li class="nav-item"><a href="#tab_verify"	 data-toggle="tab" class="nav-link" 	  >検証</a></li>
 		</ul>
 
 		<div class="tab-content">
@@ -68,11 +87,8 @@
 
 			<!-- 承認 -->
 			<div id="tab_confirm" class="tab-pane">
-
 				<div><b>申請者情報:</b> <span id="outputData_confirm" class="text-break"></span></div>
-
 				<div class="collapse" id="div_text_confirm">
-
 					<label><b>承認テキスト:</b></label>
 					<input type="text" id="text_confirm" class="form-control">
 					<div class="input-group">
@@ -88,7 +104,6 @@
 				<div class="collapse" id="div_cancel_confirm">
 					<button type="button" id="cancel_confirm" class="btn btn-primary">キャンセル</button>
 				</div>
-
 				<div id="confirmed_confirm"><ul></ul></div>
 			</div>
 
@@ -96,6 +111,7 @@
 			<div id="tab_verify" class="tab-pane">
 				<div><b>承認者署名ID:</b> <span id="outputData_verify" class="text-break"></span></div>
 				<div id="confirmed_verify"><ul></ul></div>
+				<div><button type="button" id="button_auth" class="btn btn-primary">認証</button></div>
 
 <!--				<div><button type="button" id="button_verify" class="btn btn-primary">認証</button></div>
 				<div id="confirmed_verify"><ul></ul></div>
@@ -135,7 +151,6 @@
 	</div><!-- /.modal-dialog -->
 </div><!-- /.modal -->
 
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.min.js"></script>
 <script
 	src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
@@ -153,12 +168,12 @@
 <script src="symbol-qr-library-0.9.1.js"></script>
 <script src="symbol-sdk-0.18.0.js"></script>
 <script src="xembook-tools.js"></script>
-
 <script>$(function() {
 
-const nem = require("/node_modules/symbol-sdk");
-const qr  = require("/node_modules/symbol-qr-library");
-const op  = require("/node_modules/rxjs/operators");
+const nem  = require("/node_modules/symbol-sdk");
+const qr   = require("/node_modules/symbol-qr-library");
+const op   = require("/node_modules/rxjs/operators");
+const rxjs = require("/node_modules/rxjs");
 
 // dummy for script kiddy
 var bob = nem.Account.generateNewAccount(nem.NetworkType.TEST_NET);
@@ -184,7 +199,10 @@ const GENERATION_HASH = "ACECD90E7B248E012803228ADB4424F0D966D24149B72E58987D2BF
 const accountHttp = new nem.AccountHttp(NODE);
 const txHttp  = new nem.TransactionHttp(NODE);
 const blockHttp = new nem.BlockHttp(NODE);
-
+const receiptHttp = new nem.ReceiptHttp(NODE);
+const metaHttp = new nem.MetadataHttp(NODE);
+const metaService = new nem.MetadataTransactionService(metaHttp);
+const transactionService = new nem.TransactionService(txHttp, receiptHttp);
 const wsEndpoint = NODE.replace('http', 'ws');
 const listener = new nem.Listener(wsEndpoint, WebSocket);
 listener.open().then(() => {
@@ -198,7 +216,6 @@ var canvasElement;
 var canvas;
 var outputData;
 var currentTab;
-
 var isMovieScanning = false;
 var video = document.createElement("video");
 
@@ -213,12 +230,10 @@ function drawLine(begin, end, color) {
 
 function tick() {
 	if(!isMovieScanning){return;}
-
 	if (video.readyState === video.HAVE_ENOUGH_DATA) {
 		canvasElement.hidden = false;
 		canvasElement.width  = 450;
 		canvasElement.height = 450 * video.videoHeight / video.videoWidth;
-
 		getCodeInfo(video);
 	}
 	requestAnimationFrame(tick);
@@ -232,17 +247,11 @@ function getCodeInfo(src){
 
 	if (code) {
 		isMovieScanning = false;
-//		outputData.parentElement.hidden = false;
-
 		drawLine(code.location.topLeftCorner		, code.location.topRightCorner		,"#FF3B58");
 		drawLine(code.location.topRightCorner		, code.location.bottomRightCorner	,"#FF3B58");
 		drawLine(code.location.bottomRightCorner	, code.location.bottomLeftCorner	,"#FF3B58");
 		drawLine(code.location.bottomLeftCorner		, code.location.topLeftCorner		,"#FF3B58");
-
 		resultQR(code.data);
-
-	} else {
-//		outputData.parentElement.hidden = true;
 	}
 }
 
@@ -250,7 +259,6 @@ function startVideo(divId){
 
 	currentTab = "tab_" + divId;
 	isMovieScanning = true;
-
 	canvasElement = document.getElementById("canvas");
 	canvas		  = canvasElement.getContext("2d");
 	outputData	  = document.getElementById("outputData");
@@ -258,7 +266,7 @@ function startVideo(divId){
 	navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(function(stream) {
 		video.srcObject = stream;
 		window.localStream = stream;
-		video.setAttribute("playsinline", true); // required to tell iOS safari we don't want fullscreen
+		video.setAttribute("playsinline", true);
 		video.play();
 		requestAnimationFrame(tick);
 	});
@@ -274,37 +282,63 @@ function stopVideo(){
 
 function showAccountQR(x){
 
-	$('#div1').collapse('hide');
-	$('#div2').collapse('show');
-	$('#hanco').attr('src',x);
-
-	listener
-	.confirmed(alicePublicAccount.address)
+	listener.confirmed(alicePublicAccount.address)
 	.pipe(
 		op.delay(1000),
 		op.mergeMap(x=>accountHttp.getAccountInfo(alicePublicAccount.address)),
 		op.mergeMap(_=>_.mosaics),
 		op.filter(_ => _.id.toHex() === CURRENCY)
 	)
-	.subscribe(
-		function(_){
-			$("#amount").text(dispAmount(_.amount.toString(),6) + " XYM");
-			$('#div3').collapse('show');
-		},
-		err => console.error(err)
+	.subscribe(_=>{
+		$("#amount").text(dispAmount(_.amount.toString(),6) + " XYM");
+		$('#div3').collapse('show');
+	},err => console.error(err));
+
+	var bondedSubscribe = function(observer){
+		observer.pipe(
+			op.filter(_ => !_.signedByAccount(alicePublicAccount)),
+			op.map(_ => {
+				const aliceQR = qr.AccountQR.fromJSON(aliceJSON,
+					window.prompt("認証要求があります。パスフレーズをもう一度入力してください", "")
+				);
+				return aliceQR.account.signCosignatureTransaction(nem.CosignatureTransaction.create(_));
+			}),
+			op.mergeMap(_ => {
+				return rxjs.of({
+					ignored:txHttp.announceAggregateBondedCosignature(_),
+					hash:_.parentHash
+				});
+			})
+		)
+		.subscribe(_ =>{
+			listener.confirmed(alicePublicAccount.address)
+			.pipe(
+				op.filter(tx => tx.transactionInfo !== undefined && tx.transactionInfo.hash === _.hash),
+			)
+			.subscribe(
+				x => alert("認証完了しました"),
+				err => console.error(err)
+			);
+		}, err => console.error(err));
+	}
+
+	const bondedListener = listener.aggregateBondedAdded(alicePublicAccount.address)
+	const bondedHttp = accountHttp.getAccountPartialTransactions(alicePublicAccount.address)
+	.pipe(
+		op.delay(2000),
+		op.mergeMap(_ => _)
 	);
 
+	bondedSubscribe(bondedListener);
+	bondedSubscribe(bondedHttp);
+
 	const contactQR = new qr.ContactQR("xemhanco.contact.1",alicePublicAccount);
-	contactQR.toBase64()
-	.subscribe(x=>{
+	contactQR.toBase64().subscribe(x => {
 		$('#contact').attr('src',x);
 		$('#text_contact').text(alicePublicAccount.publicKey);
 	});
 
-	const metaHttp = new nem.MetadataHttp(NODE);
-
 	const key = nem.KeyGenerator.generateUInt64Key(alicePublicAccount.publicKey);
-
 	metaHttp.getAccountMetadataByKeyAndSender(alicePublicAccount.address,key.toHex(),alicePublicAccount.publicKey)
 	.pipe(
 		op.filter(_=> _.metadataEntry.value == "disabled")
@@ -326,15 +360,12 @@ function signByHanco(confirmedAddress,divId,message){
 	);
 
 	// 入力ダイアログを表示 ＋ 入力内容を user に代入
-	const pass = window.prompt("パスフレーズを入力してください", "");
-	const aliceQR = qr.AccountQR.fromJSON(aliceJSON,pass);
-	delete pass;
+	const aliceQR = qr.AccountQR.fromJSON(aliceJSON,window.prompt("パスフレーズを入力してください", ""));
 	const signedTx = aliceQR.account.sign(tx,GENERATION_HASH);
 	delete aliceQR;
 	const txHttp = new nem.TransactionHttp(NODE);
 	txHttp.announce(signedTx)
 	.subscribe(_ => {
-		console.log(_);
 
 		const confirmListener = listener
 		.confirmed(alicePublicAccount.address)
@@ -358,9 +389,8 @@ function signByHanco(confirmedAddress,divId,message){
 	console.log(NODE + "/transaction/" + signedTx.hash + "/status");
 }
 
-async function  addMeta(callback){
-	const metaHttp = new nem.MetadataHttp(NODE);
-	const metaService = new nem.MetadataTransactionService(metaHttp);
+//キャンセル
+async function addMeta(callback){
 	const key = nem.KeyGenerator.generateUInt64Key(alicePublicAccount.publicKey);
 	const value = 'disabled';
 
@@ -370,36 +400,130 @@ async function  addMeta(callback){
 			nem.NetworkType.TEST_NET,
 			nem.MetadataType.Account,
 			alicePublicAccount,//target
-			key,
-			value,
+			key,value,
 			alicePublicAccount // sender
 		).toPromise();
 
 		const aggregateTx = nem.AggregateTransaction.createComplete(
 			nem.Deadline.create(),
 			[metaTx.toAggregate(alicePublicAccount)],
-			nem.NetworkType.TEST_NET,
-			[],
+			nem.NetworkType.TEST_NET,[],
 			nem.UInt64.fromUint(100000)
 		);
 
 		// 入力ダイアログを表示 ＋ 入力内容を user に代入
 		const aliceQR = qr.AccountQR.fromJSON(aliceJSON,
-			window.prompt("パスフレーズを入力してください", "")
+			window.prompt("パスフレーズを入力してください", "");
 		);
 		const signedTx = aliceQR.account.sign(aggregateTx,GENERATION_HASH);
 		delete aliceQR;
 
 		const res = await txHttp.announce(signedTx).toPromise();
-		console.log(res);
 		callback(signedTx);
-
 		console.log(NODE + "/transaction/" + signedTx.hash + "/status");
 	})();
 }
 
-//はんこキャンセル
-function cancelHanco(){
+async function addAuth(){
+
+	const targetPublicAccount = nem.PublicAccount.createFromPublicKey($('#confirmed_verify_publicKey').text(),nem.NetworkType.TEST_NET)
+	const key = nem.KeyGenerator.generateUInt64Key(alicePublicAccount.publicKey);
+	const value = 'authenticated';
+	const metaTx = metaService.createMetadataTransaction(
+		nem.Deadline.create(),
+		nem.NetworkType.TEST_NET,
+		nem.MetadataType.Account,
+		targetPublicAccount,//target
+		key,value,
+		alicePublicAccount // sender
+	);
+
+	// 入力ダイアログを表示 ＋ 入力内容を user に代入
+	const aliceQR = qr.AccountQR.fromJSON(aliceJSON,
+		window.prompt("パスフレーズを入力してください", "")
+	);
+
+	const signedAggregateTx = metaTx
+	.pipe(
+		op.mergeMap((metaTx) => {
+
+			//注：このトランザクションがなくても成立するがトリガーが反応しないため明示的に作成
+			const optinTx = nem.TransferTransaction.create(
+			    nem.Deadline.create(),
+			    alicePublicAccount.address,[],
+			    nem.PlainMessage.create(''),
+			    nem.NetworkType.TEST_NET
+			);
+
+			const aggregateTx = nem.AggregateTransaction.createBonded(
+				nem.Deadline.create(),
+				[
+					metaTx.toAggregate(alicePublicAccount),
+					optinTx.toAggregate(targetPublicAccount)
+				],
+				nem.NetworkType.TEST_NET,[],
+				nem.UInt64.fromUint(2000000)
+			);
+			const signedTx = aliceQR.account.sign(aggregateTx, GENERATION_HASH);
+			return rxjs.of(signedTx);
+		})
+	);
+
+	signedAggregateHashLock = signedAggregateTx.pipe(
+		op.mergeMap((signedAggregateTx) => {
+			const hashLockTx = nem.HashLockTransaction.create(
+				nem.Deadline.create(),
+				new nem.Mosaic(new nem.MosaicId('519FC24B9223E0B4'),nem.UInt64.fromUint(10000000)),
+				nem.UInt64.fromUint(480),
+				signedAggregateTx,
+				nem.NetworkType.TEST_NET,
+				nem.UInt64.fromUint(2000000)
+			);
+			const signedTx = aliceQR.account.sign(hashLockTx, GENERATION_HASH);
+			const signedAggregateHashLock =  {
+				aggregate: signedAggregateTx,
+				hashLock: signedTx,
+			};
+			delete aliceQR;
+			console.log('Aggregate Transaction Hash:', signedAggregateTx.hash + '\n');
+			console.log('HashLock Transaction Hash:', signedTx.hash + '\n');
+			return rxjs.of(signedAggregateHashLock);
+		})
+	);
+
+	const bondedListener = new nem.Listener(wsEndpoint, WebSocket);
+	bondedListener.open().then(() => {
+
+		signedAggregateHashLock.pipe(
+			op.mergeMap((signedAggregateHashLock) =>
+				transactionService.announceHashLockAggregateBonded(
+					signedAggregateHashLock.hashLock,
+					signedAggregateHashLock.aggregate,
+					listener),
+			),
+		).subscribe(aggTx => {
+
+			bondedListener.confirmed(alicePublicAccount.address)
+			.pipe(
+				op.filter(tx => tx.transactionInfo !== undefined && tx.transactionInfo.hash === aggTx.transactionInfo.hash)
+			)
+			.subscribe(tx => {
+				alert("認証完了しました");
+				(async() => {
+					const bh = await blockHttp.getBlockByHeight(tx.transactionInfo.height).toPromise();
+					$('#confirmed_verify ul')
+					.append('<li><b>認証日時:</b> <span>' + dispTimeStamp(bh.timestamp.compact() + SYMBOL_EPOCH * 1000) + '</span></li>');
+				})();
+			},err => console.error(err));
+			console.log('Transaction confirmed');
+		},
+		(err) => console.log(err),
+		() => bondedListener.close());
+	});
+}
+
+function cancelSign(hash){addMeta(_ => {})} //トランザクションキャンセル
+function cancelHanco(){ ////はんこキャンセル
 	addMeta(signedTx => {
 		const confirmListener = listener
 		.confirmed(alicePublicAccount.address)
@@ -411,11 +535,6 @@ function cancelHanco(){
 
 		},err => console.error(err));
 	});
-}
-
-//トランザクションキャンセル
-function cancelSign(hash){
-	addMeta(_ => {});
 }
 
 function setFileHash(divId) {
@@ -451,7 +570,6 @@ function scanFileImage(){
 				const img = new Image();
 				img.src = e.target.result;
 				img.onload = function() {
-
 					canvasElement.height = img.width;
 					canvasElement.width	= img.height;
 					getCodeInfo(img);
@@ -488,17 +606,9 @@ $(".nav-item a").click( function(e){
 //QRコードスキャン完了時
 function resultQR(data){
 
-	if(currentTab == "tab_confirm"){ //承認
-
-		outputData.innerText = data;
-
-	}else if(currentTab == "tab_verify"){ //検証
-
-		outputData.innerText = JSON.parse(data).data.hash;
-
-	}else if(currentTab == "tab_"){ //復元
-
-		outputData.innerText = data;
+	if(currentTab == "tab_confirm"){	  outputData.innerText = data;//承認
+	}else if(currentTab == "tab_verify"){ outputData.innerText = JSON.parse(data).data.hash;//検証
+	}else if(currentTab == "tab_"){ 	  outputData.innerText = data;//復元
 	}
 }
 
@@ -512,44 +622,38 @@ $("#modal_ok").click(function(){
 		if(jsonData.name == 'xemhanco.tx.1'){
 
 			$('#div_text_confirm').collapse('hide');
-			//キャンセルボタン表示
 
-			(async() => {
-				const tx = await txHttp.getTransaction(jsonData.hash).toPromise();
-				console.log(tx);
-				if(tx.signer.publicKey == alicePublicAccount.publicKey){
-					console.log("署名者が自分：");
-					$('#div_cancel_confirm').collapse('show');
-				}else{
-					console.log("署名者が他人：" + tx.signer.publicKey);
-				}
-			})();
-
+			txHttp.getTransaction(jsonData.hash)
+			.pipe(
+				op.filter(tx => tx.signer.publicKey === alicePublicAccount.publicKey)
+			)
+			.subscribe(_ => $('#div_cancel_confirm').collapse('show'));
 		}else{
-
 			$('#div_text_confirm').collapse('show');
 		}
 
 	}else if(currentTab == "tab_verify"){ //検証
-		const metaHttp = new nem.MetadataHttp(NODE);
 
 		(async() => {
 			const tx = await txHttp.getTransaction(outputData.innerText).toPromise();
 			const bh = await blockHttp.getBlockByHeight(tx.transactionInfo.height).toPromise();
-
 			const key = nem.KeyGenerator.generateUInt64Key(tx.transactionInfo.hash);
-			const mt = await metaHttp.getAccountMetadataByKeyAndSender(tx.signer.address,key.toHex(),tx.signer.publicKey).toPromise();
-			if(mt.metadataEntry.value === "disabled"){
-				$('#confirmed_verify ul')
-				.append('<li><span class="badge badge-danger" >無効</span></li>');
-			}
+			await metaHttp.getAccountMetadataByKeyAndSender(tx.signer.address,key.toHex(),tx.signer.publicKey)
+			.toPromise().then(mt=>{
+				console.log(mt);
+				if(mt.metadataEntry.value === "disabled"){
+					$('#confirmed_verify ul')
+					.append('<li><span class="badge badge-danger" >無効</span></li>');
+				}
+			})
+			.catch(err=>console.error(err));
 
 			$('#confirmed_verify ul')
 			.append('<li><a target="_blank" href="' + EXPLORER + '/transaction/' + tx.transactionInfo.hash + '">エクスプローラーで確認</a></li>')
-			.append('<li><b>口座ID:</b> <span>' 　   + tx.signer.publicKey     + '</span></li>')
-			.append('<li><b>TX hash:</b> <span>'    + tx.transactionInfo.hash + '</span></li>')
-			.append('<li><b>署名テキスト:</b> <span>' + tx.message.payload      + '</span></li>')
-			.append('<li><b>タイムスタンプ:</b> <span>' + dispTimeStamp(bh.timestamp.compact()  + SYMBOL_EPOCH * 1000) + '</span></li>');
+			.append('<li><b>口座ID:</b> <span id="confirmed_verify_publicKey">'    + tx.signer.publicKey	 + '</span></li>')
+			.append('<li><b>TX hash:</b> <span>'	+ tx.transactionInfo.hash + '</span></li>')
+			.append('<li><b>署名テキスト:</b> <span>' + tx.message.payload		+ '</span></li>')
+			.append('<li><b>タイムスタンプ:</b> <span>' + dispTimeStamp(bh.timestamp.compact()	+ SYMBOL_EPOCH * 1000) + '</span></li>');
 		})();
 
 	}else if(currentTab == "tab_"){ //復元
@@ -557,12 +661,12 @@ $("#modal_ok").click(function(){
 		try{
 			const aliceQR = qr.AccountQR.fromJSON(outputData.innerText,$("#pass").val());
 			alicePublicAccount = aliceQR.account.publicAccount;
-			aliceQR.toBase64()
-			.subscribe(x =>{
-				showAccountQR(x);
-			});
+			aliceQR.toBase64().subscribe(x => showAccountQR(x));
 			aliceJSON = aliceQR.toJSON();
 			delete aliceQR;
+			$('#div1').collapse('hide');
+			$('#div2').collapse('show');
+			$('#hanco').attr('src',x);
 		}
 		catch (e) {
 			if(e.toString().indexOf("Could not parse encrypted account information.") > 0){
@@ -575,13 +679,10 @@ $("#modal_ok").click(function(){
 			op.mergeMap(_=>_.mosaics),
 			op.filter(_ => _.id.toHex() === CURRENCY)
 		)
-		.subscribe(
-			function(_){
-				$("#amount").text(dispAmount(_.amount.toString(),6) + " XYM");
-				$('#div3').collapse('show');
-			},
-			err => console.error(err)
-		);
+		.subscribe(_=>{
+			$("#amount").text(dispAmount(_.amount.toString(),6) + " XYM");
+			$('#div3').collapse('show');
+		},err => console.error(err));
 	}
 });
 
@@ -592,24 +693,16 @@ $("#create").click(function(){
 	const alice = nem.Account.generateNewAccount(nem.NetworkType.TEST_NET);
 	alicePublicAccount = alice.publicAccount;
 	const aliceQR = new qr.AccountQR(alice,$("#pass").val(),nem.NetworkType.TEST_NET);
-
-	aliceQR.toBase64()
-	.subscribe(x =>{
-		showAccountQR(x);
-	});
-
+	aliceQR.toBase64().subscribe(x =>showAccountQR(x));
 	aliceJSON = aliceQR.toJSON();
 	delete alice;
 	delete aliceQR;
-	//showAccountQR();
+	$('#div1').collapse('hide');
+	$('#div2').collapse('show');
+	$('#hanco').attr('src',x);
 });
 
-
-$("#cancel_contact").click(function(){ //無効化：はんこ
-
-	cancelHanco();
-});
-
+$("#cancel_contact").click(function(){ cancelHanco();}); //無効化：はんこ
 $("#cancel_confirm").click(function(){ //無効化：承認
 
 	const jsonData = JSON.parse($('#outputData_confirm').text()).data;
@@ -635,8 +728,7 @@ $('#modal-qrscan').on('hide.bs.modal', function (e) {
 	outputData.innerText = "";
 })
 
-
-$('#image'       ).change(function(e) {scanFileImage();});
+$('#image'		  ).change(function(e) {scanFileImage();});
 $('#file_selfsign').change(function(e) {setFileHash('selfsign')});
 $('#file_confirm' ).change(function(e) {setFileHash('confirm')});
 
@@ -646,17 +738,8 @@ $('#download_contact').click(function(e){
 	contactQR.toBase64().subscribe(x=>{this.href = x});
 });
 
-//自署：押印
-$('#button_selfsign').click(function(e) {
-	signByHanco(
-		alicePublicAccount.address,
-		"selfsign",
-		$("#text_selfsign").val()
-	)
-});
-
-//承認：押印
-$('#button_confirm').click(function(e) {
+$('#button_selfsign').click(function(e) {signByHanco(alicePublicAccount.address,"selfsign",$("#text_selfsign").val())});//自署：押印
+$('#button_confirm' ).click(function(e) { //承認：押印
 
 	const jsonData = JSON.parse($('#outputData_confirm').text()).data;
 	if(jsonData.name == 'xemhanco.contact.1'){
@@ -666,12 +749,9 @@ $('#button_confirm').click(function(e) {
 
 	}else if(jsonData.name == 'xemhanco.tx.1'){
 
-		txHttp.getTransaction(jsonData.hash)
-		.subscribe(x=>{
-
+		txHttp.getTransaction(jsonData.hash).subscribe(x=>{
 			signByHanco(x.signer.address,"confirm",jsonData.hash)
 		});
-
 	}else{
 		alert("承認できないデータです")
 	}
@@ -682,8 +762,22 @@ $("#faucet").click(function(){
 	return false;
 });
 
+$("#button_auth").click(function(){addAuth()});
+
 $('#div1').collapse('show');
 
 })</script>
 </body>
 </html>
+© 2020 GitHub, Inc.
+Terms
+Privacy
+Security
+Status
+Help
+Contact GitHub
+Pricing
+API
+Training
+Blog
+About
