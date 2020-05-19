@@ -132,6 +132,7 @@
 	</div><!-- /.modal-dialog -->
 </div><!-- /.modal -->
 
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.min.js"></script>
 <script
 	src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
@@ -149,6 +150,7 @@
 <script src="symbol-qr-library-0.9.1.js"></script>
 <script src="symbol-sdk-0.18.0.js"></script>
 <script src="xembook-tools.js"></script>
+
 <script>$(function() {
 
 const nem  = require("/node_modules/symbol-sdk");
@@ -184,10 +186,14 @@ const receiptHttp = new nem.ReceiptHttp(NODE);
 const metaHttp = new nem.MetadataHttp(NODE);
 const metaService = new nem.MetadataTransactionService(metaHttp);
 const transactionService = new nem.TransactionService(txHttp, receiptHttp);
+
 const wsEndpoint = NODE.replace('http', 'ws');
 const listener = new nem.Listener(wsEndpoint, WebSocket);
 listener.open().then(() => {
 	setInterval(function(){listener.newBlock()}, 30000);
+
+
+
 });
 
 //グローバル変数
@@ -197,8 +203,12 @@ var canvasElement;
 var canvas;
 var outputData;
 var currentTab;
+
 var isMovieScanning = false;
 var video = document.createElement("video");
+
+
+
 
 function drawLine(begin, end, color) {
 	canvas.beginPath();
@@ -211,10 +221,12 @@ function drawLine(begin, end, color) {
 
 function tick() {
 	if(!isMovieScanning){return;}
+
 	if (video.readyState === video.HAVE_ENOUGH_DATA) {
 		canvasElement.hidden = false;
 		canvasElement.width  = 450;
 		canvasElement.height = 450 * video.videoHeight / video.videoWidth;
+
 		getCodeInfo(video);
 	}
 	requestAnimationFrame(tick);
@@ -228,11 +240,17 @@ function getCodeInfo(src){
 
 	if (code) {
 		isMovieScanning = false;
+//		outputData.parentElement.hidden = false;
+
 		drawLine(code.location.topLeftCorner		, code.location.topRightCorner		,"#FF3B58");
 		drawLine(code.location.topRightCorner		, code.location.bottomRightCorner	,"#FF3B58");
 		drawLine(code.location.bottomRightCorner	, code.location.bottomLeftCorner	,"#FF3B58");
 		drawLine(code.location.bottomLeftCorner		, code.location.topLeftCorner		,"#FF3B58");
+
 		resultQR(code.data);
+
+	} else {
+//		outputData.parentElement.hidden = true;
 	}
 }
 
@@ -240,6 +258,7 @@ function startVideo(divId){
 
 	currentTab = "tab_" + divId;
 	isMovieScanning = true;
+
 	canvasElement = document.getElementById("canvas");
 	canvas		  = canvasElement.getContext("2d");
 	outputData	  = document.getElementById("outputData");
@@ -247,7 +266,7 @@ function startVideo(divId){
 	navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(function(stream) {
 		video.srcObject = stream;
 		window.localStream = stream;
-		video.setAttribute("playsinline", true);
+		video.setAttribute("playsinline", true); // required to tell iOS safari we don't want fullscreen
 		video.play();
 		requestAnimationFrame(tick);
 	});
@@ -263,62 +282,78 @@ function stopVideo(){
 
 function showAccountQR(x){
 
-	listener.confirmed(alicePublicAccount.address)
+	$('#div1').collapse('hide');
+	$('#div2').collapse('show');
+	$('#hanco').attr('src',x);
+
+	listener
+	.confirmed(alicePublicAccount.address)
 	.pipe(
 		op.delay(1000),
 		op.mergeMap(x=>accountHttp.getAccountInfo(alicePublicAccount.address)),
 		op.mergeMap(_=>_.mosaics),
 		op.filter(_ => _.id.toHex() === CURRENCY)
 	)
-	.subscribe(_=>{
-		$("#amount").text(dispAmount(_.amount.toString(),6) + " XYM");
-		$('#div3').collapse('show');
-	},err => console.error(err));
-
-	var bondedSubscribe = function(observer){
-		observer.pipe(
-			op.filter(_ => !_.signedByAccount(alicePublicAccount)),
-			op.map(_ => {
-				const aliceQR = qr.AccountQR.fromJSON(aliceJSON,
-					window.prompt("認証要求があります。パスフレーズをもう一度入力してください", "")
-				);
-				return aliceQR.account.signCosignatureTransaction(nem.CosignatureTransaction.create(_));
-			}),
-			op.mergeMap(_ => {
-				return rxjs.of({
-					ignored:txHttp.announceAggregateBondedCosignature(_),
-					hash:_.parentHash
-				});
-			})
-		)
-		.subscribe(_ =>{
-			listener.confirmed(alicePublicAccount.address)
-			.pipe(
-				op.filter(tx => tx.transactionInfo !== undefined && tx.transactionInfo.hash === _.hash),
-			)
-			.subscribe(
-				x => alert("認証完了しました"),
-				err => console.error(err)
-			);
-		}, err => console.error(err));
-	}
-
-	const bondedListener = listener.aggregateBondedAdded(alicePublicAccount.address)
-	const bondedHttp = accountHttp.getAccountPartialTransactions(alicePublicAccount.address)
-	.pipe(
-		op.delay(2000),
-		op.mergeMap(_ => _)
+	.subscribe(
+		function(_){
+			$("#amount").text(dispAmount(_.amount.toString(),6) + " XYM");
+			$('#div3').collapse('show');
+		},
+		err => console.error(err)
 	);
 
-	bondedSubscribe(bondedListener);
-	bondedSubscribe(bondedHttp);
+	accountHttp.getAccountPartialTransactions(alicePublicAccount.address)
+    .pipe(
+		op.delay(2000),
+        op.mergeMap(_ => {
+            return _;
+        }),
+        op.filter((_) => {
+            return !_.signedByAccount(alicePublicAccount)
+        }),
+        op.map(_ => {
+			const aliceQR = qr.AccountQR.fromJSON(aliceJSON,
+				window.prompt("認証要求があります。パスフレーズをもう一度入力してください", "")
+			);
+            return aliceQR.account.signCosignatureTransaction(nem.CosignatureTransaction.create(_));
+        }),
+        op.mergeMap(_ => {
+//            exhash = _.parentHash;
+            return rxjs.of({
+				ignored:txHttp.announceAggregateBondedCosignature(_),
+				hash:_.parentHash
+			});
+        })
+    )
+    .subscribe(_ => {
+
+		listener
+	    .confirmed(alicePublicAccount.address)
+	    .pipe(
+	        op.filter(tx => tx.transactionInfo !== undefined && tx.transactionInfo.hash === _.hash),
+	    )
+	    .subscribe(
+	        function(x){
+				alert("認証完了しました");
+	        },
+	        err => console.error(err)
+	    );
+    },
+        err => console.error(err)
+    );
+
+
+
+
 
 	const contactQR = new qr.ContactQR("xemhanco.contact.1",alicePublicAccount);
-	contactQR.toBase64().subscribe(x => {
+	contactQR.toBase64()
+	.subscribe(x=>{
 		$('#contact').attr('src',x);
 		$('#text_contact').text(alicePublicAccount.publicKey);
 	});
 
+	const metaHttp = new nem.MetadataHttp(NODE);
 	const key = nem.KeyGenerator.generateUInt64Key(alicePublicAccount.publicKey);
 	metaHttp.getAccountMetadataByKeyAndSender(alicePublicAccount.address,key.toHex(),alicePublicAccount.publicKey)
 	.pipe(
@@ -341,12 +376,15 @@ function signByHanco(confirmedAddress,divId,message){
 	);
 
 	// 入力ダイアログを表示 ＋ 入力内容を user に代入
-	const aliceQR = qr.AccountQR.fromJSON(aliceJSON,window.prompt("パスフレーズを入力してください", ""));
+	const pass = window.prompt("パスフレーズを入力してください", "");
+	const aliceQR = qr.AccountQR.fromJSON(aliceJSON,pass);
+	delete pass;
 	const signedTx = aliceQR.account.sign(tx,GENERATION_HASH);
 	delete aliceQR;
 	const txHttp = new nem.TransactionHttp(NODE);
 	txHttp.announce(signedTx)
 	.subscribe(_ => {
+		console.log(_);
 
 		const confirmListener = listener
 		.confirmed(alicePublicAccount.address)
@@ -370,7 +408,6 @@ function signByHanco(confirmedAddress,divId,message){
 	console.log(NODE + "/transaction/" + signedTx.hash + "/status");
 }
 
-//キャンセル
 async function addMeta(callback){
 	const key = nem.KeyGenerator.generateUInt64Key(alicePublicAccount.publicKey);
 	const value = 'disabled';
@@ -381,41 +418,50 @@ async function addMeta(callback){
 			nem.NetworkType.TEST_NET,
 			nem.MetadataType.Account,
 			alicePublicAccount,//target
-			key,value,
+			key,
+			value,
 			alicePublicAccount // sender
 		).toPromise();
 
 		const aggregateTx = nem.AggregateTransaction.createComplete(
 			nem.Deadline.create(),
 			[metaTx.toAggregate(alicePublicAccount)],
-			nem.NetworkType.TEST_NET,[],
+			nem.NetworkType.TEST_NET,
+			[],
 			nem.UInt64.fromUint(100000)
 		);
 
 		// 入力ダイアログを表示 ＋ 入力内容を user に代入
 		const aliceQR = qr.AccountQR.fromJSON(aliceJSON,
-			window.prompt("パスフレーズを入力してください", "");
+			window.prompt("パスフレーズを入力してください", "")
 		);
 		const signedTx = aliceQR.account.sign(aggregateTx,GENERATION_HASH);
 		delete aliceQR;
 
 		const res = await txHttp.announce(signedTx).toPromise();
+		console.log(res);
 		callback(signedTx);
+
 		console.log(NODE + "/transaction/" + signedTx.hash + "/status");
 	})();
 }
 
-async function addAuth(){
+async function addAuth(callback){
 
 	const targetPublicAccount = nem.PublicAccount.createFromPublicKey($('#confirmed_verify_publicKey').text(),nem.NetworkType.TEST_NET)
+
+	const metaHttp = new nem.MetadataHttp(NODE);
+	const metaService = new nem.MetadataTransactionService(metaHttp);
 	const key = nem.KeyGenerator.generateUInt64Key(alicePublicAccount.publicKey);
 	const value = 'authenticated';
+
 	const metaTx = metaService.createMetadataTransaction(
 		nem.Deadline.create(),
 		nem.NetworkType.TEST_NET,
 		nem.MetadataType.Account,
 		targetPublicAccount,//target
-		key,value,
+		key,
+		value,
 		alicePublicAccount // sender
 	);
 
@@ -426,23 +472,12 @@ async function addAuth(){
 
 	const signedAggregateTx = metaTx
 	.pipe(
-		op.mergeMap((metaTx) => {
-
-			//注：このトランザクションがなくても成立するがトリガーが反応しないため明示的に作成
-			const optinTx = nem.TransferTransaction.create(
-			    nem.Deadline.create(),
-			    alicePublicAccount.address,[],
-			    nem.PlainMessage.create(''),
-			    nem.NetworkType.TEST_NET
-			);
-
+		op.mergeMap((tx) => {
 			const aggregateTx = nem.AggregateTransaction.createBonded(
 				nem.Deadline.create(),
-				[
-					metaTx.toAggregate(alicePublicAccount),
-					optinTx.toAggregate(targetPublicAccount)
-				],
-				nem.NetworkType.TEST_NET,[],
+				[tx.toAggregate(alicePublicAccount)],
+				nem.NetworkType.TEST_NET,
+				[],
 				nem.UInt64.fromUint(2000000)
 			);
 			const signedTx = aliceQR.account.sign(aggregateTx, GENERATION_HASH);
@@ -465,46 +500,54 @@ async function addAuth(){
 				aggregate: signedAggregateTx,
 				hashLock: signedTx,
 			};
-			delete aliceQR;
 			console.log('Aggregate Transaction Hash:', signedAggregateTx.hash + '\n');
 			console.log('HashLock Transaction Hash:', signedTx.hash + '\n');
 			return rxjs.of(signedAggregateHashLock);
 		})
 	);
 
-	const bondedListener = new nem.Listener(wsEndpoint, WebSocket);
-	bondedListener.open().then(() => {
+	signedAggregateHashLock.pipe(
+		op.mergeMap((signedAggregateHashLock) =>
+			transactionService.announceHashLockAggregateBonded(
+				signedAggregateHashLock.hashLock,
+				signedAggregateHashLock.aggregate,
+				listener),
+		),
+	).subscribe(
+		aggTx => {
 
-		signedAggregateHashLock.pipe(
-			op.mergeMap((signedAggregateHashLock) =>
-				transactionService.announceHashLockAggregateBonded(
-					signedAggregateHashLock.hashLock,
-					signedAggregateHashLock.aggregate,
-					listener),
-			),
-		).subscribe(aggTx => {
+			listener
+		    .confirmed(alicePublicAccount.address)
+		    .pipe(
+		        op.filter(tx => {
+					return tx.transactionInfo !== undefined && tx.transactionInfo.hash === aggTx.transactionInfo.hash
+				}),
+		    )
+		    .subscribe(
+		        function(tx){
+					alert("認証完了しました");
 
-			bondedListener.confirmed(alicePublicAccount.address)
-			.pipe(
-				op.filter(tx => tx.transactionInfo !== undefined && tx.transactionInfo.hash === aggTx.transactionInfo.hash)
-			)
-			.subscribe(tx => {
-				alert("認証完了しました");
-				(async() => {
-					const bh = await blockHttp.getBlockByHeight(tx.transactionInfo.height).toPromise();
-					$('#confirmed_verify ul')
-					.append('<li><b>認証日時:</b> <span>' + dispTimeStamp(bh.timestamp.compact() + SYMBOL_EPOCH * 1000) + '</span></li>');
-				})();
-			},err => console.error(err));
+					(async() => {
+						const bh = await blockHttp.getBlockByHeight(tx.transactionInfo.height).toPromise();
+
+						$('#confirmed_verify ul')
+						.append('<li><b>認証日時:</b> <span>' + dispTimeStamp(bh.timestamp.compact()	+ SYMBOL_EPOCH * 1000) + '</span></li>');
+					})();
+		        },
+		        err => console.error(err)
+		    );
+
 			console.log('Transaction confirmed');
 		},
 		(err) => console.log(err),
-		() => bondedListener.close());
-	});
+//		() => listener.close()
+	);
+
+
 }
 
-function cancelSign(hash){addMeta(_ => {})} //トランザクションキャンセル
-function cancelHanco(){ ////はんこキャンセル
+//はんこキャンセル
+function cancelHanco(){
 	addMeta(signedTx => {
 		const confirmListener = listener
 		.confirmed(alicePublicAccount.address)
@@ -516,6 +559,11 @@ function cancelHanco(){ ////はんこキャンセル
 
 		},err => console.error(err));
 	});
+}
+
+//トランザクションキャンセル
+function cancelSign(hash){
+	addMeta(_ => {});
 }
 
 function setFileHash(divId) {
@@ -551,6 +599,7 @@ function scanFileImage(){
 				const img = new Image();
 				img.src = e.target.result;
 				img.onload = function() {
+
 					canvasElement.height = img.width;
 					canvasElement.width	= img.height;
 					getCodeInfo(img);
@@ -587,9 +636,17 @@ $(".nav-item a").click( function(e){
 //QRコードスキャン完了時
 function resultQR(data){
 
-	if(currentTab == "tab_confirm"){	  outputData.innerText = data;//承認
-	}else if(currentTab == "tab_verify"){ outputData.innerText = JSON.parse(data).data.hash;//検証
-	}else if(currentTab == "tab_"){ 	  outputData.innerText = data;//復元
+	if(currentTab == "tab_confirm"){ //承認
+
+		outputData.innerText = data;
+
+	}else if(currentTab == "tab_verify"){ //検証
+
+		outputData.innerText = JSON.parse(data).data.hash;
+
+	}else if(currentTab == "tab_"){ //復元
+
+		outputData.innerText = data;
 	}
 }
 
@@ -603,21 +660,31 @@ $("#modal_ok").click(function(){
 		if(jsonData.name == 'xemhanco.tx.1'){
 
 			$('#div_text_confirm').collapse('hide');
+			//キャンセルボタン表示
 
-			txHttp.getTransaction(jsonData.hash)
-			.pipe(
-				op.filter(tx => tx.signer.publicKey === alicePublicAccount.publicKey)
-			)
-			.subscribe(_ => $('#div_cancel_confirm').collapse('show'));
+			(async() => {
+				const tx = await txHttp.getTransaction(jsonData.hash).toPromise();
+				console.log(tx);
+				if(tx.signer.publicKey == alicePublicAccount.publicKey){
+					console.log("署名者が自分：");
+					$('#div_cancel_confirm').collapse('show');
+				}else{
+					console.log("署名者が他人：" + tx.signer.publicKey);
+				}
+			})();
+
 		}else{
+
 			$('#div_text_confirm').collapse('show');
 		}
 
 	}else if(currentTab == "tab_verify"){ //検証
+		const metaHttp = new nem.MetadataHttp(NODE);
 
 		(async() => {
 			const tx = await txHttp.getTransaction(outputData.innerText).toPromise();
 			const bh = await blockHttp.getBlockByHeight(tx.transactionInfo.height).toPromise();
+
 			const key = nem.KeyGenerator.generateUInt64Key(tx.transactionInfo.hash);
 			await metaHttp.getAccountMetadataByKeyAndSender(tx.signer.address,key.toHex(),tx.signer.publicKey)
 			.toPromise().then(mt=>{
@@ -627,7 +694,11 @@ $("#modal_ok").click(function(){
 					.append('<li><span class="badge badge-danger" >無効</span></li>');
 				}
 			})
-			.catch(err=>console.error(err));
+			.catch(err=>{
+
+				console.error(err);
+			})
+
 
 			$('#confirmed_verify ul')
 			.append('<li><a target="_blank" href="' + EXPLORER + '/transaction/' + tx.transactionInfo.hash + '">エクスプローラーで確認</a></li>')
@@ -642,12 +713,12 @@ $("#modal_ok").click(function(){
 		try{
 			const aliceQR = qr.AccountQR.fromJSON(outputData.innerText,$("#pass").val());
 			alicePublicAccount = aliceQR.account.publicAccount;
-			aliceQR.toBase64().subscribe(x => showAccountQR(x));
+			aliceQR.toBase64()
+			.subscribe(x =>{
+				showAccountQR(x);
+			});
 			aliceJSON = aliceQR.toJSON();
 			delete aliceQR;
-			$('#div1').collapse('hide');
-			$('#div2').collapse('show');
-			$('#hanco').attr('src',x);
 		}
 		catch (e) {
 			if(e.toString().indexOf("Could not parse encrypted account information.") > 0){
@@ -660,10 +731,13 @@ $("#modal_ok").click(function(){
 			op.mergeMap(_=>_.mosaics),
 			op.filter(_ => _.id.toHex() === CURRENCY)
 		)
-		.subscribe(_=>{
-			$("#amount").text(dispAmount(_.amount.toString(),6) + " XYM");
-			$('#div3').collapse('show');
-		},err => console.error(err));
+		.subscribe(
+			function(_){
+				$("#amount").text(dispAmount(_.amount.toString(),6) + " XYM");
+				$('#div3').collapse('show');
+			},
+			err => console.error(err)
+		);
 	}
 });
 
@@ -674,16 +748,24 @@ $("#create").click(function(){
 	const alice = nem.Account.generateNewAccount(nem.NetworkType.TEST_NET);
 	alicePublicAccount = alice.publicAccount;
 	const aliceQR = new qr.AccountQR(alice,$("#pass").val(),nem.NetworkType.TEST_NET);
-	aliceQR.toBase64().subscribe(x =>showAccountQR(x));
+
+	aliceQR.toBase64()
+	.subscribe(x =>{
+		showAccountQR(x);
+	});
+
 	aliceJSON = aliceQR.toJSON();
 	delete alice;
 	delete aliceQR;
-	$('#div1').collapse('hide');
-	$('#div2').collapse('show');
-	$('#hanco').attr('src',x);
+	//showAccountQR();
 });
 
-$("#cancel_contact").click(function(){ cancelHanco();}); //無効化：はんこ
+
+$("#cancel_contact").click(function(){ //無効化：はんこ
+
+	cancelHanco();
+});
+
 $("#cancel_confirm").click(function(){ //無効化：承認
 
 	const jsonData = JSON.parse($('#outputData_confirm').text()).data;
@@ -709,7 +791,8 @@ $('#modal-qrscan').on('hide.bs.modal', function (e) {
 	outputData.innerText = "";
 })
 
-$('#image'		  ).change(function(e) {scanFileImage();});
+
+$('#image'		 ).change(function(e) {scanFileImage();});
 $('#file_selfsign').change(function(e) {setFileHash('selfsign')});
 $('#file_confirm' ).change(function(e) {setFileHash('confirm')});
 
@@ -719,8 +802,17 @@ $('#download_contact').click(function(e){
 	contactQR.toBase64().subscribe(x=>{this.href = x});
 });
 
-$('#button_selfsign').click(function(e) {signByHanco(alicePublicAccount.address,"selfsign",$("#text_selfsign").val())});//自署：押印
-$('#button_confirm' ).click(function(e) { //承認：押印
+//自署：押印
+$('#button_selfsign').click(function(e) {
+	signByHanco(
+		alicePublicAccount.address,
+		"selfsign",
+		$("#text_selfsign").val()
+	)
+});
+
+//承認：押印
+$('#button_confirm').click(function(e) {
 
 	const jsonData = JSON.parse($('#outputData_confirm').text()).data;
 	if(jsonData.name == 'xemhanco.contact.1'){
@@ -730,9 +822,12 @@ $('#button_confirm' ).click(function(e) { //承認：押印
 
 	}else if(jsonData.name == 'xemhanco.tx.1'){
 
-		txHttp.getTransaction(jsonData.hash).subscribe(x=>{
+		txHttp.getTransaction(jsonData.hash)
+		.subscribe(x=>{
+
 			signByHanco(x.signer.address,"confirm",jsonData.hash)
 		});
+
 	}else{
 		alert("承認できないデータです")
 	}
@@ -743,7 +838,11 @@ $("#faucet").click(function(){
 	return false;
 });
 
-$("#button_auth").click(function(){addAuth()});
+$("#button_auth").click(function(){
+	addAuth();
+	return false;
+});
+
 
 $('#div1').collapse('show');
 
